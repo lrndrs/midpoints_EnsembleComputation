@@ -1,6 +1,9 @@
 # ------------------------------------------------------------------
 # Compute Palaeo midpoints with a Error-in-Variables approach, 
 # Compute Overall Uncertainty by Drawing from MCMC ensemble
+# 1) d18O
+# 2) d13C_init
+# 3) temporal relationship between indicators assuming a fully correlated age model
 
 ## This script is related to the publication
 ## Endres, L., C. Pérez-Mejı́as, R. Ivanovic, et al. “Interplay of North Atlantic Freshening and Deep Convection during the Last Deglaciation Constrained by Iberian Speleothems.” EGUsphere 2025 (2025): 1–37. https://doi.org/10.5194/egusphere-2025-3911.
@@ -40,19 +43,28 @@ ggplotly(ggplot() + geom_line(GLA.pub,mapping=aes(x=depth_sample,y=d18O_measurem
            geom_point(GLA.pub,mapping=aes(x=depth_sample,y=d18O_measurement)))
 
 ### Depths (mm)
-mid_d18O_depth_1 <- c(20.20,20.95) 
-mid_d18O_depth_2 <- c(14.45,14.75) 
-mid_d18O_depth_3 <- c(12.20,12.80) 
-mid_d18O_depth_4 <- c(11.10,11.45) 
+mid_d18O_depth_0 <- c(37.20,39.20)
+mid_d18O_depth_1 <- c(20.20,20.95)
+mid_d18O_depth_2 <- c(15.35,15.50) 
+mid_d18O_depth_3 <- c(14.45,14.75) 
+mid_d18O_depth_4 <- c(12.20,12.80) 
+mid_d18O_depth_5 <- c(11.10,11.45) 
 
 mid_d18O_depths <- list(
+  cp0 = mid_d18O_depth_0, 
   cp1 = mid_d18O_depth_1,  # ~17.9k
   cp2 = mid_d18O_depth_2,  # ~16.1k
   cp3 = mid_d18O_depth_3,  # ~15.3k
-  cp4 = mid_d18O_depth_4   # ~14.7k
+  cp4 = mid_d18O_depth_4,   # ~14.7k
+  cp5 = mid_d18O_depth_5   # ~14.7k
 )
 
 ### Assigned d18O values
+mid_d18O_value_0 <- sapply(mid_d18O_depth_0, function(d) {
+  GLA.pub$d18O_measurement[
+    which.min(abs(GLA.pub$depth_sample - d))
+  ]
+})
 mid_d18O_value_1 <- sapply(mid_d18O_depth_1, function(d) {
   GLA.pub$d18O_measurement[
     which.min(abs(GLA.pub$depth_sample - d))
@@ -73,12 +85,20 @@ mid_d18O_value_4 <- sapply(mid_d18O_depth_4, function(d) {
     which.min(abs(GLA.pub$depth_sample - d))
   ]
 })
+mid_d18O_value_5 <- sapply(mid_d18O_depth_5, function(d) {
+  GLA.pub$d18O_measurement[
+    which.min(abs(GLA.pub$depth_sample - d))
+  ]
+})
+
 
 mid_d18O_values <- list(
+  cp0 = mid_d18O_value_0,  # ~23.8k
   cp1 = mid_d18O_value_1,  # ~17.9k
   cp2 = mid_d18O_value_2,  # ~16.1k
   cp3 = mid_d18O_value_3,  # ~15.3k
-  cp4 = mid_d18O_value_4   # ~14.7k
+  cp4 = mid_d18O_value_4,   # ~14.7k
+  cp5 = mid_d18O_value_5   # ~14.7k
 )
 
 # --------------------
@@ -127,6 +147,8 @@ summary_df <- data.frame(
   depth_lwr = numeric(),
   depth_upr = numeric(),
   
+  name        = character(),
+  
   stringsAsFactors = FALSE
 )
 
@@ -137,16 +159,20 @@ summary_df <- data.frame(
 # --------------------
 
 #Load age model data
+mid_d18O_ages_0 <- predict(a1,newPositions=mid_d18O_depth_0)
 mid_d18O_ages_1 <- predict(a1,newPositions=mid_d18O_depth_1)
 mid_d18O_ages_2 <- predict(a1,newPositions=mid_d18O_depth_2)
 mid_d18O_ages_3 <- predict(a1,newPositions=mid_d18O_depth_3)
 mid_d18O_ages_4 <- predict(a1,newPositions=mid_d18O_depth_4)
+mid_d18O_ages_5 <- predict(a1,newPositions=mid_d18O_depth_5)
 
 mid_d18O_ages <- list(
+  cp0 = mid_d18O_ages_0,  # ~17.9k
   cp1 = mid_d18O_ages_1,  # ~17.9k
   cp2 = mid_d18O_ages_2,  # ~16.1k
   cp3 = mid_d18O_ages_3,  # ~15.3k
-  cp4 = mid_d18O_ages_4   # ~14.7k
+  cp4 = mid_d18O_ages_4,   # ~14.7k
+  cp5 = mid_d18O_ages_5   # ~14.7k
 )
 
 
@@ -213,8 +239,8 @@ for (name in names(mid_d18O_depths)) {
   # Quantiles
   mid_xx <- quantile(results[,3], probs = c(0.025, 0.5,0.975), na.rm = TRUE)
   mid_yy <- quantile(results[,4], probs = c(0.025, 0.5,0.975), na.rm = TRUE)
-  nomen_m <- sprintf("%.1fk_F", mid_xx[2] / 1000)
-  nomen <- sprintf("%.1fk_F", author_results[3] / 1000)
+  nomen_m <- sprintf("%.1fk_S", mid_xx[2] / 1000)
+  nomen <- sprintf("%.1fk_S", author_results[3] / 1000)
   nomen_gra <- sprintf("%.1fk", author_results[3] / 1000)
   
   end_x <- quantile(mid_d18O_ages[[name]][,1], probs = c(0.025, 0.5,0.975), na.rm = TRUE)
@@ -266,7 +292,9 @@ for (name in names(mid_d18O_depths)) {
     slope_upr = slope[3],
     
     depth_lwr = mid_d18O_depths[[name]][1],
-    depth_upr = mid_d18O_depths[[name]][2]
+    depth_upr = mid_d18O_depths[[name]][2],
+    
+    name = name
     
   )
   
@@ -376,14 +404,16 @@ cat(md_table, sep = "\n")
 # Further Diagnostic Plot (In Paper Supplementary)
 # -------------------------------------
 
-cairo_pdf("figure_d18O.pdf", width = 7, height = 5, family = "Helvetica")
-par(mfrow = c(2,2),
+list_result <- list_result[summary_df$name]
+
+cairo_pdf("figure_d18O.pdf", width = 7*1.5, height = 5*1.5, family = "Helvetica")
+par(mfrow = c(2,3),
     mar = c(3.2, 4.2, 1.8, 0.8),
     mgp = c(2.1, 0.6, 0),
     cex = 0.85,
     tcl = -0.3
     )
-summary_df$name <- c("cp1","cp2","cp3","cp4")
+#summary_df$name <- c("cp0","cp1","cp2","cp3","cp4")
 
 j = 0
 
@@ -759,7 +789,7 @@ addWorksheet(wb, "GLA d13C")  # Add a sheet
 writeData(wb, sheet = "GLA d13C", summary_df_d13C)  # Write dataframe to the sheet<
 
 # Save the workbook to an Excel file
-saveWorkbook(wb, "01_Output/AbruptTr/Transition_Analysis_v4_d13C.xlsx", overwrite = TRUE)
+saveWorkbook(wb, "Transition_Analysis_v4_d13C.xlsx", overwrite = TRUE)
 
 
 library(dplyr)
@@ -792,8 +822,8 @@ cat(latex_code)
 # Further Diagnostic Plot (In Paper Supplementary)
 # -------------------------------------
 
-cairo_pdf("figure_d13C.pdf", width = 7, height = 5, family = "Helvetica")
-par(mfrow = c(2,2),
+cairo_pdf("figure_d13C.pdf", width = 7*1.5, height = 2.5*1.5, family = "Helvetica")
+par(mfrow = c(1,3),
     mar = c(3.2, 4.2, 1.8, 0.8),
     mgp = c(2.1, 0.6, 0),
     cex = 0.85,
@@ -803,7 +833,7 @@ summary_df_d13C$name <- c("cp1","cp2","cp3")
 
 j = 0
 
-for (name in names(list_result)) {
+for (name in summary_df_d13C$name) {
   j = j+1
   res <- list_result[[name]]
   
@@ -887,9 +917,22 @@ dev.off()
 
 
 
+# --------------------
+# 3) temporal relationship between indicators
+# --------------------
 
+## Duration between Freshening at 17.8k and cooling at 17.0k.
 
+# Author Age Model
+author_duration_1 = (summary_df$mid_age_author[2]- summary_df_d13C$mid_age_author[2])*1000 
 
+# Compute CI
+mid_duration_1 = mid_d18O_ages_1 - mid_d13C_ages_2
+ci_duration_1 = quantile(mid_duration_1, probs = c(0.025, 0.5,0.975), na.rm = TRUE)
+
+# In Main Text
+round(author_duration_1) # Duration 
+round(ci_duration_1 - author_duration_1) # Duration CI
 
 
 
